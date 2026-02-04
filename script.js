@@ -1,5 +1,27 @@
-// Storage key for localStorage
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+    getFirestore,
+    collection,
+    addDoc,
+    getDocs,
+    query,
+    orderBy,
+    deleteDoc,
+    doc
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+// Storage key for localStorage (fallback)
 const STORAGE_KEY = 'projectRatings';
+
+// Firebase setup (optional)
+const firebaseConfig = window.FIREBASE_CONFIG;
+const isFirebaseEnabled = firebaseConfig && firebaseConfig.apiKey && firebaseConfig.projectId;
+let firestoreDb = null;
+
+if (isFirebaseEnabled) {
+    const app = initializeApp(firebaseConfig);
+    firestoreDb = getFirestore(app);
+}
 
 // DOM Elements
 const ratingForm = document.getElementById('ratingForm');
@@ -64,7 +86,7 @@ function updateRatingText(value) {
 }
 
 // Form Submission
-ratingForm.addEventListener('submit', (e) => {
+ratingForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     if (!ratingInput.value) {
@@ -81,8 +103,8 @@ ratingForm.addEventListener('submit', (e) => {
         date: new Date().toISOString()
     };
 
-    // Save to localStorage
-    saveReview(formData);
+    // Save review (cloud if configured, otherwise localStorage)
+    await saveReview(formData);
 
     // Reset form
     ratingForm.reset();
@@ -94,38 +116,63 @@ ratingForm.addEventListener('submit', (e) => {
     showToast('Thank you for your feedback! 🎉');
 
     // Refresh display
-    displayReviews();
-    updateStatistics();
+    await displayReviews();
+    await updateStatistics();
 });
 
-// Save review to localStorage
-function saveReview(review) {
-    const reviews = getReviews();
+// Save review (cloud if configured, otherwise localStorage)
+async function saveReview(review) {
+    if (isFirebaseEnabled && firestoreDb) {
+        await addDoc(collection(firestoreDb, 'reviews'), {
+            rating: review.rating,
+            name: review.name,
+            email: review.email,
+            comment: review.comment,
+            date: review.date
+        });
+        return;
+    }
+
+    const reviews = await getReviews();
     reviews.push(review);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(reviews));
 }
 
-// Get all reviews from localStorage
-function getReviews() {
+// Get all reviews (cloud if configured, otherwise localStorage)
+async function getReviews() {
+    if (isFirebaseEnabled && firestoreDb) {
+        const reviewsRef = collection(firestoreDb, 'reviews');
+        const reviewsQuery = query(reviewsRef, orderBy('date', 'desc'));
+        const snapshot = await getDocs(reviewsQuery);
+        return snapshot.docs.map(docSnap => ({
+            id: docSnap.id,
+            ...docSnap.data()
+        }));
+    }
+
     const data = localStorage.getItem(STORAGE_KEY);
     return data ? JSON.parse(data) : [];
 }
 
 // Delete review
-function deleteReview(id) {
+async function deleteReview(id) {
     if (confirm('Are you sure you want to delete this review?')) {
-        let reviews = getReviews();
-        reviews = reviews.filter(review => review.id !== id);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(reviews));
-        displayReviews();
-        updateStatistics();
+        if (isFirebaseEnabled && firestoreDb) {
+            await deleteDoc(doc(firestoreDb, 'reviews', id));
+        } else {
+            let reviews = await getReviews();
+            reviews = reviews.filter(review => review.id !== id);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(reviews));
+        }
+        await displayReviews();
+        await updateStatistics();
         showToast('Review deleted successfully');
     }
 }
 
 // Display reviews
-function displayReviews() {
-    const reviews = getReviews();
+async function displayReviews() {
+    const reviews = await getReviews();
     
     // Filter reviews
     let filteredReviews = reviews;
@@ -133,8 +180,10 @@ function displayReviews() {
         filteredReviews = reviews.filter(review => review.rating === parseInt(currentFilter));
     }
 
-    // Sort by date (newest first)
-    filteredReviews.sort((a, b) => new Date(b.date) - new Date(a.date));
+    // Sort by date (newest first) for localStorage fallback
+    if (!isFirebaseEnabled) {
+        filteredReviews.sort((a, b) => new Date(b.date) - new Date(a.date));
+    }
 
     // Update review count
     reviewCount.textContent = `(${reviews.length})`;
@@ -174,8 +223,8 @@ function displayReviews() {
 }
 
 // Update statistics
-function updateStatistics() {
-    const reviews = getReviews();
+async function updateStatistics() {
+    const reviews = await getReviews();
 
     if (reviews.length === 0) {
         document.getElementById('avgRating').textContent = '0.0';
@@ -216,11 +265,11 @@ function updateStatistics() {
 
 // Filter reviews
 filterButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
         filterButtons.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentFilter = btn.dataset.filter;
-        displayReviews();
+        await displayReviews();
     });
 });
 
@@ -253,9 +302,9 @@ function showToast(message, type = 'success') {
 }
 
 // Initialize app
-function init() {
-    displayReviews();
-    updateStatistics();
+async function init() {
+    await displayReviews();
+    await updateStatistics();
 }
 
 // Run on page load
