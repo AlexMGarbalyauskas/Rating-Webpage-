@@ -32,9 +32,12 @@ const ratingText = document.getElementById('ratingText');
 const reviewsContainer = document.getElementById('reviewsContainer');
 const filterButtons = document.querySelectorAll('.filter-btn');
 const reviewCount = document.getElementById('reviewCount');
+const loadMoreBtn = document.getElementById('loadMoreBtn');
 
 // Current filter
 let currentFilter = 'all';
+const REVIEWS_PAGE_SIZE = 10;
+let currentPage = 1;
 
 // Star Rating Interaction
 stars.forEach(star => {
@@ -116,6 +119,7 @@ ratingForm.addEventListener('submit', async (e) => {
     showToast('Thank you for your feedback! 🎉');
 
     // Refresh display
+    currentPage = 1;
     await displayReviews();
     await updateStatistics();
 });
@@ -191,10 +195,14 @@ async function displayReviews() {
     // Display reviews
     if (filteredReviews.length === 0) {
         reviewsContainer.innerHTML = '<p class="no-reviews">No reviews yet. Be the first to share your feedback!</p>';
+        updateLoadMoreVisibility(0, 0);
         return;
     }
 
-    reviewsContainer.innerHTML = filteredReviews.map(review => {
+    const endIndex = currentPage * REVIEWS_PAGE_SIZE;
+    const pageReviews = filteredReviews.slice(0, endIndex);
+
+    reviewsContainer.innerHTML = pageReviews.map(review => {
         const date = new Date(review.date);
         const formattedDate = date.toLocaleDateString('en-US', {
             year: 'numeric',
@@ -220,6 +228,8 @@ async function displayReviews() {
             </div>
         `;
     }).join('');
+
+    updateLoadMoreVisibility(pageReviews.length, filteredReviews.length);
 }
 
 // Update statistics
@@ -269,9 +279,27 @@ filterButtons.forEach(btn => {
         filterButtons.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentFilter = btn.dataset.filter;
+        currentPage = 1;
         await displayReviews();
     });
 });
+
+// Load more reviews
+if (loadMoreBtn) {
+    loadMoreBtn.addEventListener('click', async () => {
+        currentPage += 1;
+        await displayReviews();
+    });
+}
+
+function updateLoadMoreVisibility(shownCount, totalCount) {
+    if (!loadMoreBtn) return;
+    if (shownCount >= totalCount) {
+        loadMoreBtn.style.display = 'none';
+    } else {
+        loadMoreBtn.style.display = 'inline-block';
+    }
+}
 
 // Utility function to escape HTML
 function escapeHtml(text) {
