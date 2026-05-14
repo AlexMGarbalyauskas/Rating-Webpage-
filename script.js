@@ -117,6 +117,26 @@ if (isAdmin && clearReviewsBtn) {
     });
 }
 
+// Add a visible admin badge to help debug deployment and confirm admin mode
+function showAdminBadge() {
+    if (!isAdmin) return;
+    const badge = document.createElement('div');
+    badge.textContent = 'ADMIN MODE';
+    badge.style.position = 'fixed';
+    badge.style.right = '12px';
+    badge.style.top = '12px';
+    badge.style.background = '#ff6b6b';
+    badge.style.color = 'white';
+    badge.style.padding = '6px 10px';
+    badge.style.borderRadius = '6px';
+    badge.style.zIndex = '9999';
+    badge.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)';
+    document.body.appendChild(badge);
+    console.log('Admin mode active');
+}
+
+showAdminBadge();
+
 function updateRatingText(value) {
     const ratings = {
         1: 'Poor 😞',
