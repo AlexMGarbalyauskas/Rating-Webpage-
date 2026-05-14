@@ -39,6 +39,7 @@ const reviewsContainer = document.getElementById('reviewsContainer');
 const filterButtons = document.querySelectorAll('.filter-btn');
 const reviewCount = document.getElementById('reviewCount');
 const loadMoreBtn = document.getElementById('loadMoreBtn');
+const clearReviewsBtn = document.getElementById('clearReviewsBtn');
 
 // Current filter
 let currentFilter = 'all';
@@ -84,6 +85,35 @@ function updateStarDisplay(value) {
         } else {
             star.classList.remove('active');
         }
+    });
+}
+
+// Admin mode detection
+const isAdmin = new URLSearchParams(window.location.search).get('admin') === '1';
+if (isAdmin && clearReviewsBtn) {
+    clearReviewsBtn.style.display = 'inline-block';
+    clearReviewsBtn.addEventListener('click', async () => {
+        if (!confirm('Delete all reviews permanently? This cannot be undone.')) return;
+
+        // Delete from Firestore if enabled
+        if (isFirebaseEnabled && firestoreDb) {
+            const reviewsRef = collection(firestoreDb, 'reviews');
+            const snapshot = await getDocs(query(reviewsRef, orderBy('date', 'desc')));
+            const deletes = snapshot.docs.map(d => deleteDoc(doc(firestoreDb, 'reviews', d.id)));
+            await Promise.all(deletes);
+        }
+
+        // Clear localStorage fallback
+        localStorage.removeItem(STORAGE_KEY);
+
+        // Reset pagination and refresh
+        fetchedReviews = [];
+        lastVisible = null;
+        hasMore = true;
+        currentPage = 1;
+        await displayReviews();
+        await updateStatistics();
+        showToast('All reviews deleted');
     });
 }
 
