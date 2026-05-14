@@ -303,6 +303,7 @@ async function displayReviews() {
                         <div class="review-rating">${stars}</div>
                         <div class="review-date">${formattedDate}</div>
                     </div>
+                    ${isAdmin ? `<button class="btn-delete" data-id="${review.id}" style="margin-left:12px;background:#ff6b6b;border:none;padding:6px 10px;border-radius:6px;color:white;cursor:pointer">Delete</button>` : ''}
                 </div>
                 <div class="review-comment">${escapeHtml(review.comment)}</div>
             </div>
@@ -312,7 +313,17 @@ async function displayReviews() {
         // show count; if there are more pages, show +
         reviewCount.textContent = `(${fetchedReviews.length}${hasMore ? '+' : ''})`;
         updateLoadMoreVisibility(pageReviews.length, fetchedReviews.length + (hasMore ? 1 : 0));
-        return;
+            // attach delete handlers for admin
+            if (isAdmin) {
+                const dels = document.querySelectorAll('.btn-delete');
+                dels.forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const id = btn.dataset.id;
+                        await deleteReview(id);
+                    });
+                });
+            }
+            return;
     }
 
     // localStorage fallback
@@ -360,6 +371,7 @@ async function displayReviews() {
                         <div class="review-rating">${stars}</div>
                         <div class="review-date">${formattedDate}</div>
                     </div>
+                    ${isAdmin ? `<button class="btn-delete" data-id="${review.id}" style="margin-left:12px;background:#ff6b6b;border:none;padding:6px 10px;border-radius:6px;color:white;cursor:pointer">Delete</button>` : ''}
                 </div>
                 <div class="review-comment">${escapeHtml(review.comment)}</div>
             </div>
@@ -367,6 +379,16 @@ async function displayReviews() {
     }).join('');
 
     updateLoadMoreVisibility(pageReviews.length, filteredReviews.length);
+    // attach delete handlers for admin (local mode)
+    if (isAdmin) {
+        const dels = document.querySelectorAll('.btn-delete');
+        dels.forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = btn.dataset.id;
+                await deleteReview(id);
+            });
+        });
+    }
 }
 
 // Update statistics
